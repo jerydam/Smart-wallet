@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Wallet Selector</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Random Wallet Selector</h1>
+    <label for="numWinners">Number of Wallets to Select:</label>
+    <input type="number" id="numWinners" value="5" min="1">
+    <button onclick="selectRandomWallets()">Select Random Wallets</button>
+    <div id="result"></div>
+
+    <script>
+        const DROPLIST_CONTRACT_ADDRESS = "0xB8De8f37B263324C44FD4874a7FB7A0C59D8C58E";
+        const CHECKIN_ABI = [
+            {
+                "anonymous": false,
+                "inputs": [
+                    { "indexed": true, "internalType": "address", "name": "user", "type": "address" },
+                    { "indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+                    { "indexed": false, "internalType": "uint256", "name": "balance", "type": "uint256" }
+                ],
+                "name": "CheckIn",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    { "indexed": true, "internalType": "address", "name": "user", "type": "address" },
+                    { "indexed": false, "internalType": "uint256", "name": "participantCount", "type": "uint256" }
+                ],
+                "name": "NewParticipant",
+                "type": "event"
+            },
+            {
+                "inputs": [
+                    { "internalType": "address", "name": "user", "type": "address" }
+                ],
+                "name": "addressToString",
+                "outputs": [
+                    { "internalType": "string", "name": "", "type": "string" }
+                ],
+                "stateMutability": "pure",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "droplist",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "getAllParticipants",
+                "outputs": [
+                    { "internalType": "address[]", "name": "", "type": "address[]" }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    { "internalType": "address", "name": "user", "type": "address" }
+                ],
+                "name": "getBalance",
+                "outputs": [
+                    { "internalType": "uint256", "name": "", "type": "uint256" }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    { "internalType": "uint256", "name": "index", "type": "uint256" }
+                ],
+                "name": "getParticipant",
+                "outputs": [
+                    { "internalType": "address", "name": "", "type": "address" }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "getTotalTransactions",
+                "outputs": [
+                    { "internalType": "uint256", "name": "", "type": "uint256" }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "getUniqueParticipantCount",
+                "outputs": [
+                    { "internalType": "uint256", "name": "", "type": "uint256" }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    { "internalType": "address", "name": "user", "type": "address" }
+                ],
+                "name": "hasAddressParticipated",
+                "outputs": [
+                    { "internalType": "bool", "name": "", "type": "bool" }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+        async function switchNetwork() {
+            const chainId = '0xa4ec'; // 42220 in hexadecimal for Celo Mainnet
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId }],
+                });
+                return true;
+            } catch (switchError) {
+                // If the chain is not added to MetaMask, add it
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [
+                                {
+                                    chainId: chainId,
+                                    chainName: 'Celo Mainnet',
+                                    nativeCurrency: {
+                                        name: 'CELO',
+                                        symbol: 'CELO',
+                                        decimals: 18,
+                                    },
+                                    rpcUrls: ['https://forno.celo.org'],
+                                    blockExplorerUrls: ['https://explorer.celo.org'],
+                                },
+                            ],
+                        });
+                        return true;
+                    } catch (addError) {
+                        console.error('Failed to add Celo network:', addError);
+                        return false;
+                    }
+                }
+                console.error('Failed to switch network:', switchError);
+                return false;
+            }
+        }
+
+        async function selectRandomWallets() {
+            const numWinners = parseInt(document.getElementById('numWinners').value);
+            const resultDiv = document.getElementById('result');
+
+            // Initialize Web3 with a fallback provider
+            let web3;
+            if (typeof window.ethereum !== 'undefined') {
+                web3 = new Web3(window.ethereum);
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                } catch (error) {
+                    resultDiv.innerHTML = 'Failed to connect to MetaMask. Please ensure MetaMask is installed and unlocked.';
+                    resultDiv.style.display = 'block';
+                    console.error('MetaMask connection error:', error);
+                    return;
+                }
+            } else {
+                // Fallback to a public RPC (Celo mainnet)
+                web3 = new Web3('https://forno.celo.org');
+                resultDiv.innerHTML = 'MetaMask not detected. Using fallback provider (read-only mode).';
+                resultDiv.style.display = 'block';
+            }
+
+            try {
+                // Check network
+                const networkId = await web3.eth.net.getId();
+                const expectedNetworkId = 42220; // Celo Mainnet
+                if (networkId !== expectedNetworkId) {
+                    const switched = await switchNetwork();
+                    if (!switched) {
+                        resultDiv.innerHTML = `Failed to switch to Celo Mainnet (Network ID: ${expectedNetworkId}). Please switch manually.`;
+                        resultDiv.style.display = 'block';
+                        return;
+                    }
+                }
+
+                // Initialize contract
+                const contract = new web3.eth.Contract(CHECKIN_ABI, DROPLIST_CONTRACT_ADDRESS);
+
+                // Call getAllParticipants
+                const participants = await contract.methods.getAllParticipants().call();
+
+                if (!participants || participants.length === 0) {
+                    resultDiv.innerHTML = 'No participants found in the contract.';
+                    resultDiv.style.display = 'block';
+                    return;
+                }
+
+                if (numWinners > participants.length) {
+                    resultDiv.innerHTML = `Cannot select ${numWinners} wallets. Only ${participants.length} participants available.`;
+                    resultDiv.style.display = 'block';
+                    return;
+                }
+
+                // Fisher-Yates shuffle algorithm to select random wallets
+                const shuffled = [...participants];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+
+                // Select the first 'numWinners' wallets
+                const selectedWallets = shuffled.slice(0, numWinners);
+
+                // Display results
+                resultDiv.innerHTML = '<h3>Selected Wallets:</h3><ul>' + 
+                    selectedWallets.map(wallet => `<li>${wallet}</li>`).join('') + 
+                    '</ul>';
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                console.error('Contract interaction error:', error);
+                resultDiv.innerHTML = `Error: ${error.message}. Please check the contract address, ABI, and network.`;
+                resultDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
