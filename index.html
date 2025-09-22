@@ -3,16 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Random Wallet Selector</title>
+    <title>Smart Raffle</title>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Random Wallet Selector</h1>
-    <label for="numWinners">Number of Wallets to Select:</label>
-    <input type="number" id="numWinners" value="5" min="1">
-    <button onclick="selectRandomWallets()">Select Random Wallets</button>
-    <div id="result"></div>
+    <div class="container">
+        <h1>Smart Raffle</h1>
+        <p class="subtitle">Randomly select winners for Faucet drop Droplist campaign</p>
+        
+        <div class="form-group">
+            <label for="numWinners">Number of winners</label>
+            <div class="input-container">
+                <input type="number" id="numWinners" value="5" min="1" max="100">
+            </div>
+        </div>
+        
+        <button class="select-button" onclick="debouncedSelectRandomWallets()">Select Winners</button>
+        
+        <div id="result"></div>
+    </div>
 
     <script>
         const DROPLIST_CONTRACT_ADDRESS = "0xB8De8f37B263324C44FD4874a7FB7A0C59D8C58E";
@@ -116,6 +126,35 @@
             }
         ];
 
+        // Debounce function to prevent multiple rapid clicks
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Retry mechanism for contract calls
+        async function withRetry(fn, retries = 3, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    return await fn();
+                } catch (error) {
+                    if (error.message.includes('circuit breaker is open') && i < retries - 1) {
+                        console.warn(`Circuit breaker error, retrying (${i + 1}/${retries})...`);
+                        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i))); // Exponential backoff
+                        continue;
+                    }
+                    throw error;
+                }
+            }
+        }
+
         async function switchNetwork() {
             const chainId = '0xa4ec'; // 42220 in hexadecimal for Celo Mainnet
             try {
@@ -125,7 +164,6 @@
                 });
                 return true;
             } catch (switchError) {
-                // If the chain is not added to MetaMask, add it
                 if (switchError.code === 4902) {
                     try {
                         await window.ethereum.request({
@@ -158,23 +196,57 @@
         async function selectRandomWallets() {
             const numWinners = parseInt(document.getElementById('numWinners').value);
             const resultDiv = document.getElementById('result');
+            const button = document.querySelector('.select-button');
 
-            // Initialize Web3 with a fallback provider
+            // Input validation
+            if (isNaN(numWinners) || numWinners < 1 || numWinners > 100) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        Please enter a valid number of winners (1-100).
+                    </div>
+                `;
+                resultDiv.style.display = 'block';
+                resetButton(button);
+                return;
+            }
+
+            // Show loading state
+            button.disabled = true;
+            button.textContent = 'Selecting Wallets...';
+            resultDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Connecting to blockchain and fetching participants...</p>
+                </div>
+            `;
+            resultDiv.style.display = 'block';
+
+            // Initialize Web3
             let web3;
             if (typeof window.ethereum !== 'undefined') {
                 web3 = new Web3(window.ethereum);
                 try {
                     await window.ethereum.request({ method: 'eth_requestAccounts' });
                 } catch (error) {
-                    resultDiv.innerHTML = 'Failed to connect to MetaMask. Please ensure MetaMask is installed and unlocked.';
-                    resultDiv.style.display = 'block';
-                    console.error('MetaMask connection error:', error);
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            Failed to connect to MetaMask. Please ensure MetaMask is installed and unlocked.
+                        </div>
+                    `;
+                    resetButton(button);
                     return;
                 }
             } else {
-                // Fallback to a public RPC (Celo mainnet)
                 web3 = new Web3('https://forno.celo.org');
-                resultDiv.innerHTML = 'MetaMask not detected. Using fallback provider (read-only mode).';
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        MetaMask not detected. Using fallback provider (read-only mode).
+                    </div>
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Fetching participants from contract...</p>
+                    </div>
+                `;
                 resultDiv.style.display = 'block';
             }
 
@@ -182,11 +254,15 @@
                 // Check network
                 const networkId = await web3.eth.net.getId();
                 const expectedNetworkId = 42220; // Celo Mainnet
-                if (networkId !== expectedNetworkId) {
+                if (networkId !== expectedNetworkId && window.ethereum) {
                     const switched = await switchNetwork();
                     if (!switched) {
-                        resultDiv.innerHTML = `Failed to switch to Celo Mainnet (Network ID: ${expectedNetworkId}). Please switch manually.`;
-                        resultDiv.style.display = 'block';
+                        resultDiv.innerHTML = `
+                            <div class="error">
+                                Failed to switch to Celo Mainnet (Network ID: ${expectedNetworkId}). Please switch manually in MetaMask.
+                            </div>
+                        `;
+                        resetButton(button);
                         return;
                     }
                 }
@@ -194,42 +270,133 @@
                 // Initialize contract
                 const contract = new web3.eth.Contract(CHECKIN_ABI, DROPLIST_CONTRACT_ADDRESS);
 
-                // Call getAllParticipants
-                const participants = await contract.methods.getAllParticipants().call();
+                // Call getAllParticipants with retry
+                const participants = await withRetry(() => contract.methods.getAllParticipants().call(), 3, 1000);
 
                 if (!participants || participants.length === 0) {
-                    resultDiv.innerHTML = 'No participants found in the contract.';
-                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            No participants found in the contract.
+                        </div>
+                    `;
+                    resetButton(button);
                     return;
                 }
 
                 if (numWinners > participants.length) {
-                    resultDiv.innerHTML = `Cannot select ${numWinners} wallets. Only ${participants.length} participants available.`;
-                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            Cannot select ${numWinners} wallets. Only ${participants.length} participants available.
+                        </div>
+                    `;
+                    resetButton(button);
                     return;
                 }
 
-                // Fisher-Yates shuffle algorithm to select random wallets
+                // Fisher-Yates shuffle algorithm
                 const shuffled = [...participants];
                 for (let i = shuffled.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
                 }
 
-                // Select the first 'numWinners' wallets
+                // Select winners
                 const selectedWallets = shuffled.slice(0, numWinners);
 
                 // Display results
-                resultDiv.innerHTML = '<h3>Selected Wallets:</h3><ul>' + 
-                    selectedWallets.map(wallet => `<li>${wallet}</li>`).join('') + 
-                    '</ul>';
+                resultDiv.innerHTML = `
+                    <div class="result-card">
+                        <h3>🎉 Selected Winners</h3>
+                        <button class="copy-all-button" onclick="copyAllWallets()">
+                            📋 Copy All Wallet Addresses
+                        </button>
+                        <ul class="wallet-list">
+                            ${selectedWallets.map(wallet => `<li class="wallet-item" title="Click to copy">${wallet}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
                 resultDiv.style.display = 'block';
+
+                // Add click to copy functionality
+                document.querySelectorAll('.wallet-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        navigator.clipboard.writeText(item.textContent).then(() => {
+                            const originalText = item.textContent;
+                            item.textContent = 'Copied!';
+                            item.style.background = '#dcfce7';
+                            setTimeout(() => {
+                                item.textContent = originalText;
+                                item.style.background = '';
+                            }, 1000);
+                        });
+                    });
+                });
+
+                resetButton(button);
             } catch (error) {
                 console.error('Contract interaction error:', error);
-                resultDiv.innerHTML = `Error: ${error.message}. Please check the contract address, ABI, and network.`;
-                resultDiv.style.display = 'block';
+                let errorMessage = error.message;
+                if (error.message.includes('circuit breaker is open')) {
+                    errorMessage = 'MetaMask circuit breaker is open. Please try again in a few minutes, reset MetaMask, or switch to a different RPC provider.';
+                }
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        Error: ${errorMessage}.<br>Please check the contract address, ABI, network connection, or try again later.
+                    </div>
+                `;
+                resetButton(button);
             }
         }
+
+        // Debounced version of selectRandomWallets
+        const debouncedSelectRandomWallets = debounce(selectRandomWallets, 1000);
+
+        function resetButton(button) {
+            button.disabled = false;
+            button.textContent = 'Select Winners';
+        }
+
+        function copyAllWallets() {
+            const walletItems = document.querySelectorAll('.wallet-item');
+            const addresses = Array.from(walletItems).map(item => item.textContent);
+            const allAddresses = addresses.join('\n');
+            
+            navigator.clipboard.writeText(allAddresses).then(() => {
+                const copyButton = document.querySelector('.copy-all-button');
+                const originalText = copyButton.innerHTML;
+                copyButton.innerHTML = '✅ All Addresses Copied!';
+                copyButton.classList.add('copied');
+                
+                setTimeout(() => {
+                    copyButton.innerHTML = originalText;
+                    copyButton.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy addresses: ', err);
+                const textArea = document.createElement('textarea');
+                textArea.value = allAddresses;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                const copyButton = document.querySelector('.copy-all-button');
+                const originalText = copyButton.innerHTML;
+                copyButton.innerHTML = '✅ All Addresses Copied!';
+                copyButton.classList.add('copied');
+                
+                setTimeout(() => {
+                    copyButton.innerHTML = originalText;
+                    copyButton.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // Add copy functionality message
+        document.addEventListener('DOMContentLoaded', () => {
+            const subtitle = document.querySelector('.subtitle');
+            subtitle.innerHTML = 'Randomly select winners for Faucet drop Droplist campaign<br><small style="opacity: 0.7; font-size: 0.9rem;">💡 Click any wallet address to copy</small>';
+        });
     </script>
 </body>
 </html>

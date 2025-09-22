@@ -1,98 +1,375 @@
+* {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            max-width: 700px;
-            margin: 40px auto;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #020817 0%, #131C2F 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 20px;
-            background-color: #f4f7fa;
-            color: #333;
+            color: #1a1a1a;
         }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 48px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 32px 64px rgba(0, 0, 0, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transform: translateY(0);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .container:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.16);
+        }
+
         h1 {
             text-align: center;
-            color: #2c3e50;
-            font-size: 2.2em;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #020817, #131C2F);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+            line-height: 1.2;
         }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            font-weight: 500;
+        }
+
+        .form-group {
+            margin-bottom: 32px;
+        }
+
         label {
             display: block;
             font-weight: 600;
-            margin-bottom: 10px;
-            color: #34495e;
+            margin-bottom: 12px;
+            color: #334155;
+            font-size: 1rem;
+            letter-spacing: -0.01em;
         }
+
+        .input-container {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            max-width: 180px;
+        }
+
         input[type="number"] {
-            width: 120px;
-            padding: 10px;
-            border: 2px solid #dfe6e9;
-            border-radius: 8px;
-            font-size: 1em;
-            margin-bottom: 20px;
-            background-color: #fff;
-            transition: border-color 0.3s ease;
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            background: #ffffff;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            color: #1e293b;
+            text-align: center;
         }
+
         input[type="number"]:focus {
-            border-color: #0984e3;
+            border-color: #020817;
             outline: none;
-            box-shadow: 0 0 5px rgba(9, 132, 227, 0.3);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            background: #fefefe;
         }
-        button {
-            display: block;
-            width: 200px;
-            margin: 20px auto;
-            padding: 12px 20px;
-            background-color: #0984e3;
+
+        input[type="number"]:hover {
+            border-color: #cbd5e1;
+            background: #fefefe;
+        }
+
+        .select-button {
+            width: 100%;
+            padding: 18px 32px;
+            background: linear-gradient(135deg, #020817 0%, #131C2F 100%);
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 1.1em;
-            font-weight: 600;
+            border-radius: 16px;
+            font-size: 1.1rem;
+            font-weight: 700;
             cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.025em;
+            text-transform: uppercase;
+            margin-top: 8px;
         }
-        button:hover {
-            background-color: #0652dd;
+
+        .select-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .select-button:hover::before {
+            left: 100%;
+        }
+
+        .select-button:hover {
+            background: linear-gradient(135deg, #020817 0%, #131C2F 100%);
             transform: translateY(-2px);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
         }
-        button:active {
+
+        .select-button:active {
             transform: translateY(0);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.2);
         }
+
+        .select-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
         #result {
-            margin-top: 30px;
-            padding: 20px;
-            border: 2px solid #dfe6e9;
-            border-radius: 8px;
-            background-color: #fff;
+            margin-top: 32px;
             display: none;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        #result h3 {
-            margin-top: 0;
-            color: #2c3e50;
-            font-size: 1.5em;
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        #result ul {
+
+        .result-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 28px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+        }
+
+        .result-card h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .wallet-list {
             list-style: none;
             padding: 0;
+            margin: 0;
         }
-        #result li {
-            padding: 10px 0;
-            border-bottom: 1px solid #dfe6e9;
-            font-size: 0.95em;
+
+        .wallet-item {
+            background: white;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
             word-break: break-all;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            border: 1px solid #f1f5f9;
+            transition: all 0.2s ease;
+            position: relative;
+            cursor: pointer;
         }
-        #result li:last-child {
-            border-bottom: none;
+
+        .wallet-item:hover {
+            background: #f8fafc;
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
-        @media (max-width: 600px) {
-            body {
-                padding: 15px;
+
+        .wallet-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .wallet-item::before {
+            content: counter(wallet-counter);
+            counter-increment: wallet-counter;
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, #020817, #131C2F);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .wallet-list {
+            counter-reset: wallet-counter;
+            padding-left: 20px;
+        }
+
+        .copy-all-button {
+            width: 100%;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .copy-all-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .copy-all-button:hover::before {
+            left: 100%;
+        }
+
+        .copy-all-button:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        }
+
+        .copy-all-button:active {
+            transform: translateY(0);
+        }
+
+        .copy-all-button.copied {
+            background: linear-gradient(135deg, #020817 0%, #131C2F 100%);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #64748b;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #020817;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border: 1px solid #fca5a5;
+            color: #dc2626;
+            padding: 20px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .success {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            border: 1px solid #86efac;
+            color: #16a34a;
+            padding: 20px;
+            border-radius: 12px;
+            font-weight: 500;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 32px 24px;
+                margin: 20px;
             }
+
             h1 {
-                font-size: 1.8em;
+                font-size: 2rem;
             }
-            button {
-                width: 100%;
+
+            .subtitle {
+                font-size: 1rem;
+                margin-bottom: 32px;
+            }
+
+            .select-button {
+                padding: 16px 24px;
+                font-size: 1rem;
+            }
+
+            .wallet-item {
+                font-size: 0.85rem;
+                padding: 14px 16px;
             }
         }
-    
+
+        @media (max-width: 480px) {
+            body {
+                padding: 12px;
+            }
+
+            .container {
+                padding: 24px 20px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .wallet-list {
+                padding-left: 16px;
+            }
+
+            .wallet-item::before {
+                width: 24px;
+                height: 24px;
+                font-size: 0.7rem;
+                left: -10px;
+            }
+        }
